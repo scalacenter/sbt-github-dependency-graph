@@ -1,0 +1,41 @@
+name: Continuous Integration
+on:
+  push:
+  pull_request:
+
+jobs:
+  scalafmt:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: coursier/setup-action@v1.2.0-M3
+        with:
+          apps: scalafmt
+      - run: scalafmt --test
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        jvm: ['adopt:1.8', 'adopt:1.11', 'temurin:1.17']
+    name: Test on ${{ matrix.os }} -- ${{ matrix.jvm }}
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: coursier/setup-action@v1.2.0-M3
+      with:
+        jvm: ${{ matrix.jvm }}
+        apps: sbtn
+    - run: sbtn test
+      shell: bash
+      if: runner.os != 'Windows'
+    - run: sbtn scripted
+      shell: bash
+      if: runner.os != 'Windows'
+    - run: sbtn.bat test
+      shell: bash
+      if: runner.os == 'Windows'
+    - run: sbtn.bat scripted
+      shell: bash
+      if: runner.os == 'Windows'
