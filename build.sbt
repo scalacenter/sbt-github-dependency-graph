@@ -14,7 +14,13 @@ inThisBuild(
     version ~= { dynVer =>
       if (isRelease) dynVer
       else "0.1.0-SNAPSHOT" // only for local publishing
-    }
+    },
+    // Scalafix settings
+    semanticdbEnabled := true,
+    semanticdbVersion := scalafixSemanticdb.revision,
+    scalafixDependencies ++= List(
+      "com.github.liancheng" %% "organize-imports" % "0.6.0"
+    )
   )
 )
 

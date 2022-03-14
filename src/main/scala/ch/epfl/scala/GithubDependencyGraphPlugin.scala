@@ -1,5 +1,13 @@
 package ch.epfl.scala
 
+import java.nio.charset.StandardCharsets
+import java.time.Instant
+
+import scala.collection.mutable
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.util.Properties
+
 import ch.epfl.scala.githubapi.DependencyNode
 import ch.epfl.scala.githubapi.DependencyRelationship
 import ch.epfl.scala.githubapi.DependencyScope
@@ -18,21 +26,18 @@ import sjsonnew.support.scalajson.unsafe.CompactPrinter
 import sjsonnew.support.scalajson.unsafe.Converter
 import sjsonnew.support.scalajson.unsafe.Parser
 
-import java.nio.charset.StandardCharsets
-import java.time.Instant
-import scala.collection.mutable
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.util.Properties
-
-object GithubDependencyGraphPlugin extends AutoPlugin  {
+object GithubDependencyGraphPlugin extends AutoPlugin {
   private lazy val http: HttpClient = Gigahorse.http(Gigahorse.config)
 
   object autoImport {
     val githubDependencyManifest: TaskKey[githubapi.Manifest] = taskKey("The dependency manifest of the project")
     val githubJob: TaskKey[Job] = taskKey("The current Github action job")
-    val githubDependencySnapshot: TaskKey[DependencySnapshot] = taskKey("The dependency snapshot of the build in a Github action job.")
-    val submitGithubDependencyGraph: TaskKey[URL] = taskKey("Submit the dependency snapshot of the build in a Github action job")
+    val githubDependencySnapshot: TaskKey[DependencySnapshot] = taskKey(
+      "The dependency snapshot of the build in a Github action job."
+    )
+    val submitGithubDependencyGraph: TaskKey[URL] = taskKey(
+      "Submit the dependency snapshot of the build in a Github action job"
+    )
   }
 
   import autoImport._
@@ -45,7 +50,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin  {
     githubDependencySnapshot := snapshotTask.value,
     submitGithubDependencyGraph := submitTask.value
   )
-  
+
   override def projectSettings: Seq[Setting[_]] = Def.settings(
     githubDependencyManifest := manifestTask.value
   )
@@ -63,13 +68,13 @@ object GithubDependencyGraphPlugin extends AutoPlugin  {
       moduleReport <- configReport.modules
       if !moduleReport.evicted
     } {
-      modules :+ (moduleReport)
-      for (caller <- moduleReport.callers) 
+      modules :+ moduleReport
+      for (caller <- moduleReport.callers)
         allDependenciesSeq :+ (caller.caller, moduleReport.module.toString)
     }
-    
+
     val allDependencies = allDependenciesSeq.toVector.groupBy(_._1).mapValues(_.map(_._2))
-    val resolved = 
+    val resolved =
       for {
         moduleReport <- modules
         module = moduleReport.module
@@ -82,17 +87,17 @@ object GithubDependencyGraphPlugin extends AutoPlugin  {
           }
       } yield {
         val url = mainArtifact.url.get
-        val relationship = 
+        val relationship =
           if (module.isTransitive) DependencyRelationship.indirect else DependencyRelationship.direct
         val scope = module.configurations.map(_.stripSuffix("-internal")) match {
           case Some("compile") | Some("runtime") | Some("provided") | Some("system") => DependencyScope.runtime
-          case Some(_) => DependencyScope.development
+          case Some(_)                                                               => DependencyScope.development
           case None =>
             logger.warn(s"No configuration for $module")
             DependencyScope.development
         }
         val dependencies = allDependencies.get(module).getOrElse(Vector.empty)
-        val node =  DependencyNode(url.toString, Map.empty[String, JValue], relationship, scope, dependencies)
+        val node = DependencyNode(url.toString, Map.empty[String, JValue], relationship, scope, dependencies)
         (module.toString, node)
       }
 
@@ -155,15 +160,13 @@ object GithubDependencyGraphPlugin extends AutoPlugin  {
     result
   }
 
-  private def githubCIEnv(name: String): String = {
+  private def githubCIEnv(name: String): String =
     Properties.envOrNone(name).getOrElse {
       throw new MessageOnlyException(s"Missing environment variable $name. This task must run in a Github Action.")
     }
-  } 
 
-  private def secret(name: String): String = {
+  private def secret(name: String): String =
     Properties.envOrNone(name).getOrElse {
       throw new MessageOnlyException(s"Missing secret variable $name.")
     }
-  }
 }
