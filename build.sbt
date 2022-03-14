@@ -20,13 +20,15 @@ inThisBuild(
 
 val `sbt-github-dependency-graph` = project
   .in(file("."))
-  .enablePlugins(SbtPlugin)
+  .enablePlugins(SbtPlugin, ContrabandPlugin, JsonCodecPlugin)
   .settings(
-    name := "sbt-debug-adapter",
+    name := "sbt-github-dependency-graph",
     sbtVersion := "1.4.9",
     scalaVersion := "2.12.15",
+    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
     scriptedLaunchOpts += s"-Dplugin.version=${version.value}",
     scriptedBufferLog := false,
+    Compile / generateContrabands / contrabandFormatsForType := ContrabandConfig.getFormats,
     scriptedDependencies := {
       publishLocal.value
     }
