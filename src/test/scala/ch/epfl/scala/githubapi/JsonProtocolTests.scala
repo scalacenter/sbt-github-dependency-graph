@@ -1,13 +1,14 @@
 package ch.epfl.scala.githubapi
 
 import munit.FunSuite
-import sjsonnew.support.scalajson.unsafe.{CompactPrinter, Converter}
-import JsonProtocol._
-import sjsonnew.shaded.scalajson.ast.unsafe.JObject
-import sjsonnew.shaded.scalajson.ast.unsafe.JString
 import sjsonnew.shaded.scalajson.ast.unsafe.JField
 import sjsonnew.shaded.scalajson.ast.unsafe.JNumber
+import sjsonnew.shaded.scalajson.ast.unsafe.JObject
+import sjsonnew.shaded.scalajson.ast.unsafe.JString
 import sjsonnew.shaded.scalajson.ast.unsafe.JValue
+import sjsonnew.support.scalajson.unsafe.Converter
+
+import JsonProtocol._
 
 class JsonProtocolTests extends FunSuite {
   test("encode metadata") {

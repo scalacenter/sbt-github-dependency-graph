@@ -25,6 +25,15 @@ val `sbt-github-dependency-graph` = project
     name := "sbt-github-dependency-graph",
     sbtVersion := "1.4.9",
     scalaVersion := "2.12.15",
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-encoding",
+      "UTF-8",
+      "-feature",
+      "-unchecked",
+      "-Xfatal-warnings",
+      "-Ywarn-unused-import"
+    ),
     libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
     scriptedLaunchOpts += s"-Dplugin.version=${version.value}",
     scriptedBufferLog := false,
