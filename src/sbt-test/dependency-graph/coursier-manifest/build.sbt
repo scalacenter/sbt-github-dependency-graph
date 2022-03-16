@@ -16,7 +16,6 @@ inThisBuild(
 lazy val p1 = project
   .in(file("p1"))
   .settings(
-    scalaVersion := "2.12.15",
     libraryDependencies ++= Seq(
       "io.circe" %% "circe-generic" % "0.14.1",
       "org.tpolecat" %% "doobie-core" % "0.13.4",
@@ -74,7 +73,6 @@ lazy val p1 = project
 lazy val p2 = project
   .in(file("p2"))
   .settings(
-    scalaVersion := "2.12.15",
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-http" % "10.2.8"
     ),

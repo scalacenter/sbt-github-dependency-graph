@@ -29,7 +29,7 @@ val `sbt-github-dependency-graph` = project
   .enablePlugins(SbtPlugin, ContrabandPlugin, JsonCodecPlugin)
   .settings(
     name := "sbt-github-dependency-graph",
-    sbtVersion := "1.4.9",
+    sbtVersion := "1.5.8",
     scalaVersion := "2.12.15",
     scalacOptions ++= Seq(
       "-deprecation",
