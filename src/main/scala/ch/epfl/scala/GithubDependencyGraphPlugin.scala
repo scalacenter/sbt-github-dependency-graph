@@ -28,6 +28,17 @@ import sjsonnew.support.scalajson.unsafe.Parser
 
 object GithubDependencyGraphPlugin extends AutoPlugin {
   private lazy val http: HttpClient = Gigahorse.http(Gigahorse.config)
+  private val runtimeConfigs =
+    Set(
+      Compile,
+      Configurations.CompileInternal,
+      Runtime,
+      Configurations.RuntimeInternal,
+      Provided,
+      Optional,
+      Configurations.System
+    )
+      .map(_.toConfigRef)
 
   object autoImport {
     val githubDependencyManifest: TaskKey[githubapi.Manifest] = taskKey("The dependency manifest of the project")
@@ -56,53 +67,70 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
   )
 
   private def manifestTask: Def.Initialize[Task[githubapi.Manifest]] = Def.task {
-    val report = Keys.update.value
+    // updateFull is needed to have information about callers
+    val report = Keys.updateFull.value
     val projectRef = Keys.thisProjectRef.value
     val logger = Keys.streams.value.log
+    val projectID =
+      prettyPrint(CrossVersion(Keys.scalaVersion.value, Keys.scalaBinaryVersion.value)(Keys.projectID.value))
 
-    val modules = mutable.Seq[ModuleReport]()
-    val allDependenciesSeq = mutable.Seq[(ModuleID, String)]()
+    val alreadySeen = mutable.Set[String]()
+    val moduleReports = mutable.Buffer[(ModuleReport, ConfigRef)]()
+    val allDependencies = mutable.Buffer[(String, String)]()
 
     for {
       configReport <- report.configurations
       moduleReport <- configReport.modules
-      if !moduleReport.evicted
+      module = prettyPrint(moduleReport.module)
+      if !moduleReport.evicted && !alreadySeen.contains(module)
     } {
-      modules :+ moduleReport
+      alreadySeen += module
+      moduleReports += (moduleReport -> configReport.configuration)
       for (caller <- moduleReport.callers)
-        allDependenciesSeq :+ (caller.caller, moduleReport.module.toString)
+        allDependencies += (prettyPrint(caller.caller) -> module)
     }
 
-    val allDependencies = allDependenciesSeq.toVector.groupBy(_._1).mapValues(_.map(_._2))
-    val resolved =
-      for {
-        moduleReport <- modules
-        module = moduleReport.module
-        filteredArtifacts = moduleReport.artifacts.collect { case (a, _) if a.url.isDefined => a }
-        mainArtifact <- filteredArtifacts
-          .find(_.classifier.isEmpty)
-          .orElse {
-            logger.warn(s"No main artifact for $module")
-            filteredArtifacts.headOption
-          }
-      } yield {
-        val url = mainArtifact.url.get
-        val relationship =
-          if (module.isTransitive) DependencyRelationship.indirect else DependencyRelationship.direct
-        val scope = module.configurations.map(_.stripSuffix("-internal")) match {
-          case Some("compile") | Some("runtime") | Some("provided") | Some("system") => DependencyScope.runtime
-          case Some(_)                                                               => DependencyScope.development
-          case None =>
-            logger.warn(s"No configuration for $module")
-            DependencyScope.development
-        }
-        val dependencies = allDependencies.get(module).getOrElse(Vector.empty)
-        val node = DependencyNode(url.toString, Map.empty[String, JValue], relationship, scope, dependencies)
-        (module.toString, node)
+    val allDependenciesMap: Map[String, Vector[String]] = allDependencies.view
+      .groupBy(_._1)
+      .mapValues {
+        _.map { case (_, dep) => dep }.toVector
       }
+    val projectDependencies = allDependenciesMap.getOrElse(projectID, Vector.empty).toSet
 
-    githubapi.Manifest(projectRef.project, None, Map.empty[String, JValue], resolved.toMap)
+    val resolved =
+      for ((moduleReport, configRef) <- moduleReports)
+        yield {
+          val module = prettyPrint(moduleReport.module)
+          val artifacts = moduleReport.artifacts.map { case (a, _) => a }
+          val mainArtifact = artifacts
+            .find(_.classifier.isEmpty)
+            .orElse {
+              if (artifacts.nonEmpty)
+                logger.warn(s"No main artifact for $module: ${artifacts.flatMap(_.classifier).mkString(", ")}")
+              artifacts.headOption
+            }
+          val url = mainArtifact.flatMap(_.url).map(_.toString)
+          val dependencies = allDependenciesMap.getOrElse(module, Vector.empty)
+          val relationship =
+            if (projectDependencies.contains(module)) DependencyRelationship.direct
+            else DependencyRelationship.indirect
+          val scope =
+            if (isRuntime(configRef)) DependencyScope.runtime
+            else DependencyScope.development
+          val node = DependencyNode(url, Map.empty[String, JValue], Some(relationship), Some(scope), dependencies)
+          (module -> node)
+        }
+
+    githubapi.Manifest(projectID, None, Map.empty[String, JValue], resolved.toMap)
   }
+
+  private def prettyPrint(module: ModuleID): String =
+    module
+      .withConfigurations(module.configurations.flatMap(c => if (c == "default") None else Some(c)))
+      .withExtraAttributes(Map.empty)
+      .toString
+
+  private def isRuntime(config: ConfigRef): Boolean = runtimeConfigs.contains(config)
 
   private def jobTask: Def.Initialize[Task[Job]] = Def.task {
     val name = githubCIEnv("GITHUB_JOB")
