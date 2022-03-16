@@ -11,6 +11,7 @@ jobs:
       - uses: coursier/setup-action@v1.2.0-M3
         with:
           apps: sbt
+          jvm: 'adopt:1.8'
       - run: sbt ci-release
         env:
           PGP_PASSPHRASE: ${{ secrets.PGP_PASSPHRASE }}
