@@ -71,8 +71,15 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val report = Keys.updateFull.value
     val projectRef = Keys.thisProjectRef.value
     val logger = Keys.streams.value.log
-    val projectID =
-      prettyPrint(CrossVersion(Keys.scalaVersion.value, Keys.scalaBinaryVersion.value)(Keys.projectID.value))
+    val projectID = Keys.projectID.value
+    val crossVersion = CrossVersion(Keys.scalaVersion.value, Keys.scalaBinaryVersion.value)
+    val allDirectDependencies = Keys.allDependencies.value
+
+    def getReference(module: ModuleID): String =
+      crossVersion(module)
+        .withConfigurations(None)
+        .withExtraAttributes(Map.empty)
+        .toString
 
     val alreadySeen = mutable.Set[String]()
     val moduleReports = mutable.Buffer[(ModuleReport, ConfigRef)]()
@@ -81,13 +88,13 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     for {
       configReport <- report.configurations
       moduleReport <- configReport.modules
-      module = prettyPrint(moduleReport.module)
-      if !moduleReport.evicted && !alreadySeen.contains(module)
+      moduleRef = getReference(moduleReport.module)
+      if !moduleReport.evicted && !alreadySeen.contains(moduleRef)
     } {
-      alreadySeen += module
+      alreadySeen += moduleRef
       moduleReports += (moduleReport -> configReport.configuration)
       for (caller <- moduleReport.callers)
-        allDependencies += (prettyPrint(caller.caller) -> module)
+        allDependencies += (getReference(caller.caller) -> moduleRef)
     }
 
     val allDependenciesMap: Map[String, Vector[String]] = allDependencies.view
@@ -95,40 +102,35 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
       .mapValues {
         _.map { case (_, dep) => dep }.toVector
       }
-    val projectDependencies = allDependenciesMap.getOrElse(projectID, Vector.empty).toSet
+    val allDirectDependenciesRefs: Set[String] = allDirectDependencies.map(getReference).toSet
 
     val resolved =
       for ((moduleReport, configRef) <- moduleReports)
         yield {
-          val module = prettyPrint(moduleReport.module)
+          val moduleRef = getReference(moduleReport.module)
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
           val mainArtifact = artifacts
             .find(_.classifier.isEmpty)
             .orElse {
               if (artifacts.nonEmpty)
-                logger.warn(s"No main artifact for $module: ${artifacts.flatMap(_.classifier).mkString(", ")}")
+                logger.warn(s"No main artifact for $moduleRef: ${artifacts.flatMap(_.classifier).mkString(", ")}")
               artifacts.headOption
             }
           val url = mainArtifact.flatMap(_.url).map(_.toString)
-          val dependencies = allDependenciesMap.getOrElse(module, Vector.empty)
+          val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
-            if (projectDependencies.contains(module)) DependencyRelationship.direct
+            if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
             else DependencyRelationship.indirect
           val scope =
             if (isRuntime(configRef)) DependencyScope.runtime
             else DependencyScope.development
           val node = DependencyNode(url, Map.empty[String, JValue], Some(relationship), Some(scope), dependencies)
-          (module -> node)
+          (moduleRef -> node)
         }
 
-    githubapi.Manifest(projectID, None, Map.empty[String, JValue], resolved.toMap)
+    val projectModuleRef = getReference(projectID)
+    githubapi.Manifest(projectModuleRef, None, Map.empty[String, JValue], resolved.toMap)
   }
-
-  private def prettyPrint(module: ModuleID): String =
-    module
-      .withConfigurations(module.configurations.flatMap(c => if (c == "default") None else Some(c)))
-      .withExtraAttributes(Map.empty)
-      .toString
 
   private def isRuntime(config: ConfigRef): Boolean = runtimeConfigs.contains(config)
 

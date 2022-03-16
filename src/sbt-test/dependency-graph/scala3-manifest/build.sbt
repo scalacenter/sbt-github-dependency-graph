@@ -45,7 +45,7 @@ lazy val p1 = project
       val scala3Compiler = resolved("org.scala-lang:scala3-compiler_3:3.1.0")
       checkDependencyNode(scala3Compiler)(
         isUrlDefined = true,
-        DependencyRelationship.indirect, // TODO: fix this, scala3-compiler is a direct dependency in allDependencies
+        DependencyRelationship.direct,
         DependencyScope.development
       )
     }
