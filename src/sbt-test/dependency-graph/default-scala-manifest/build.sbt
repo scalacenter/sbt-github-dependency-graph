@@ -4,48 +4,39 @@ import ch.epfl.scala.githubapi.DependencyNode
 
 val checkManifest = taskKey[Unit]("Check the Github manifest of a project")
 
+// using the default scalaVersion
 inThisBuild(
   Seq(
     organization := "ch.epfl.scala",
-    version := "1.2.0-SNAPSHOT",
-    scalaVersion := "3.1.0"
+    version := "1.2.0-SNAPSHOT"
   )
 )
 
 lazy val p1 = project
   .in(file("p1"))
   .settings(
-    libraryDependencies ++= Seq(
-      "io.circe" %% "circe-core" % "0.14.1"
-    ),
     checkManifest := {
       val manifest = githubDependencyManifest.value
       val resolved = manifest.resolved
 
-      assert(manifest.name == "ch.epfl.scala:p1_3:1.2.0-SNAPSHOT")
+      assert(manifest.name == "ch.epfl.scala:p1_2.12:1.2.0-SNAPSHOT")
 
       // all dependencies are defined
       assert(resolved.values.forall(n => n.dependencies.forall(resolved.contains)))
 
-      val circe = resolved("io.circe:circe-core_3:0.14.1")
-      checkDependencyNode(circe)(
-        isUrlDefined = true,
-        DependencyRelationship.direct,
-        DependencyScope.runtime,
-        Seq("org.scala-lang:scala3-library_3:3.1.0")
-      )
-
-      val scala3Library = resolved("org.scala-lang:scala3-library_3:3.1.0")
-      checkDependencyNode(scala3Library)(
-        isUrlDefined = true,
+      val scalaLibrary = resolved("org.scala-lang:scala-library:2.12.14")
+      // no url when using the default scala version because the scala-library is taken from the sbt classpath
+      checkDependencyNode(scalaLibrary)(
+        isUrlDefined = false,
         DependencyRelationship.direct,
         DependencyScope.runtime
       )
 
-      val scala3Compiler = resolved("org.scala-lang:scala3-compiler_3:3.1.0")
-      checkDependencyNode(scala3Compiler)(
-        isUrlDefined = true,
-        DependencyRelationship.indirect, // TODO: fix this, scala3-compiler is a direct dependency in allDependencies
+      val scalaCompiler = resolved("org.scala-lang:scala-compiler:2.12.14")
+      // same for the compiler, it does not have  an url
+      checkDependencyNode(scalaCompiler)(
+        isUrlDefined = false,
+        DependencyRelationship.direct,
         DependencyScope.development
       )
     }
