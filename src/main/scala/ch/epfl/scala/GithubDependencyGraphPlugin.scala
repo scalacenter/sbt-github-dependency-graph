@@ -74,6 +74,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val projectID = Keys.projectID.value
     val crossVersion = CrossVersion(Keys.scalaVersion.value, Keys.scalaBinaryVersion.value)
     val allDirectDependencies = Keys.allDependencies.value
+    val useCoursier = Keys.useCoursier.value
 
     def getReference(module: ModuleID): String =
       crossVersion(module)
@@ -107,16 +108,20 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val resolved =
       for ((moduleReport, configRef) <- moduleReports)
         yield {
-          val moduleRef = getReference(moduleReport.module)
+          val module = moduleReport.module
+          val moduleRef = getReference(module)
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
-          val mainArtifact = artifacts
-            .find(_.classifier.isEmpty)
-            .orElse {
-              if (artifacts.nonEmpty)
-                logger.warn(s"No main artifact for $moduleRef: ${artifacts.flatMap(_.classifier).mkString(", ")}")
-              artifacts.headOption
-            }
-          val url = mainArtifact.flatMap(_.url).map(_.toString)
+          val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
+          val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
+          val isMaven =
+            artifacts.flatMap(_.url).headOption.exists(_.toString.startsWith(Resolver.DefaultMavenRepositoryRoot))
+          val isOtherResolver = moduleReport.resolver.contains("inter-project")
+          val purl =
+            // with ivy mode, url is not set so we cannot know if maven was used and we assume it was
+            if (isMaven || (!useCoursier && !isOtherResolver)) {
+              // purl specification: https://github.com/package-url/purl-spec/blob/master/PURL-SPECIFICATION.rst
+              Some(s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging")
+            } else None
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
@@ -124,7 +129,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val scope =
             if (isRuntime(configRef)) DependencyScope.runtime
             else DependencyScope.development
-          val node = DependencyNode(url, Map.empty[String, JValue], Some(relationship), Some(scope), dependencies)
+          val node = DependencyNode(purl, Map.empty[String, JValue], Some(relationship), Some(scope), dependencies)
           (moduleRef -> node)
         }
 
@@ -174,7 +179,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val repository = githubCIEnv("GITHUB_REPOSITORY")
     val username = secret("GH_USERNAME")
     val token = secret("GH_TOKEN")
-    val url = new URL(s"$githubApiUrl/repos/$repository/dependency-grapĥ/snapshots")
+    val url = new URL(s"$githubApiUrl/repos/$repository/dependency-graph/snapshots")
 
     val snapshotJson = CompactPrinter(Converter.toJsonUnsafe(snapshot))
     val request = Gigahorse
