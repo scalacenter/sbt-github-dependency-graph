@@ -172,8 +172,8 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
 
     val githubApiUrl = githubCIEnv("GITHUB_API_URL")
     val repository = githubCIEnv("GITHUB_REPOSITORY")
-    val username = secret("GITHUB_USERNAME")
-    val token = secret("GITHUB_TOKEN")
+    val username = secret("GH_USERNAME")
+    val token = secret("GH_TOKEN")
     val url = new URL(s"$githubApiUrl/repos/$repository/dependency-grapĥ/snapshots")
 
     val snapshotJson = CompactPrinter(Converter.toJsonUnsafe(snapshot))
