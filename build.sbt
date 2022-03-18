@@ -40,7 +40,10 @@ val `sbt-github-dependency-graph` = project
       "-Xfatal-warnings",
       "-Ywarn-unused-import"
     ),
-    libraryDependencies += "org.scalameta" %% "munit" % "0.7.29" % Test,
+    libraryDependencies ++= Seq(
+      "com.eed3si9n" %% "gigahorse-okhttp" % "0.6.0",
+      "org.scalameta" %% "munit" % "0.7.29" % Test
+    ),
     scriptedLaunchOpts += s"-Dplugin.version=${version.value}",
     scriptedBufferLog := false,
     Compile / generateContrabands / contrabandFormatsForType := ContrabandConfig.getFormats,

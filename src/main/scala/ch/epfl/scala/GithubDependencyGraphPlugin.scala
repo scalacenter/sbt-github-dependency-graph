@@ -2,11 +2,13 @@ package ch.epfl.scala
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.util.Base64
 
 import scala.collection.mutable
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.Properties
+import scala.util.Try
 
 import ch.epfl.scala.githubapi.DependencyNode
 import ch.epfl.scala.githubapi.DependencyRelationship
@@ -15,12 +17,12 @@ import ch.epfl.scala.githubapi.DependencySnapshot
 import ch.epfl.scala.githubapi.DetectorMetadata
 import ch.epfl.scala.githubapi.Job
 import ch.epfl.scala.githubapi.JsonProtocol._
+import ch.epfl.scala.githubapi.SnapshotResponse
 import gigahorse.HttpClient
 import gigahorse.support.okhttp.Gigahorse
 import sbt.Scoped.richTaskSeq
 import sbt._
 import sbt.plugins.IvyPlugin
-import sjsonnew.shaded.scalajson.ast.unsafe.JString
 import sjsonnew.shaded.scalajson.ast.unsafe.JValue
 import sjsonnew.support.scalajson.unsafe.CompactPrinter
 import sjsonnew.support.scalajson.unsafe.Converter
@@ -180,19 +182,35 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val username = secret("GH_USERNAME")
     val token = secret("GH_TOKEN")
     val url = new URL(s"$githubApiUrl/repos/$repository/dependency-graph/snapshots")
+    val authorization = Base64.getEncoder().encodeToString(s"$username:$token".getBytes("UTF-8"))
 
     val snapshotJson = CompactPrinter(Converter.toJsonUnsafe(snapshot))
     val request = Gigahorse
       .url(url.toString)
       .post(snapshotJson, StandardCharsets.UTF_8)
-      .withAuth(username, token)
+      .addHeaders(
+        "Content-Type" -> "application/json",
+        // adding authorization manually because of https://github.com/eed3si9n/gigahorse/issues/77
+        "Authorization" -> s"Basic $authorization"
+      )
 
     logger.info(s"Submiting dependency snapshot to $url")
     val response = Await.result(http.run(request), Duration.Inf)
-    val id = Parser.parseFromByteBuffer(response.bodyAsByteBuffer).asInstanceOf[JString].value
-    val result = new URL(url, id)
-    logger.info(s"Submitted successfully as $result")
-    result
+    val result = for {
+      httpResp <- Try(Await.result(http.run(request), Duration.Inf))
+      jsonResp <- Parser.parseFromByteBuffer(httpResp.bodyAsByteBuffer)
+      response <- Converter.fromJson[SnapshotResponse](jsonResp)
+    } yield new URL(url, response.id)
+
+    result match {
+      case scala.util.Success(result) =>
+        logger.info(s"Submitted successfully as $result")
+        result
+      case scala.util.Failure(cause) =>
+        throw new MessageOnlyException(
+          s"Failed to submit the dependency snapshot because of ${cause.getClass.getName}: ${cause.getMessage}"
+        )
+    }
   }
 
   private def githubCIEnv(name: String): String =

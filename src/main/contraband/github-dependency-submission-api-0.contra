@@ -64,3 +64,8 @@ type DependencyNode {
   scope: ch.epfl.scala.githubapi.DependencyScope
   dependencies: [String]
 }
+
+type SnapshotResponse {
+  id: String!,
+  created_at: String ## ISO8601Date
+}
