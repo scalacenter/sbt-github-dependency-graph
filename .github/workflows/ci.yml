@@ -23,6 +23,9 @@ jobs:
         jvm: ['adopt:1.8', 'adopt:1.11', 'temurin:1.17']
     name: Test on ${{ matrix.os }} -- ${{ matrix.jvm }}
     runs-on: ${{ matrix.os }}
+    env:
+      GH_USERNAME: ${{ secrets.GH_USERNAME }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
     steps:
     - uses: actions/checkout@v3
     - uses: coursier/setup-action@v1.2.0-M3

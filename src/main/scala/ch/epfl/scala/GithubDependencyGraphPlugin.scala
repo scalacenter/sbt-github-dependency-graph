@@ -115,15 +115,8 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
           val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
           val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
-          val isMaven =
-            artifacts.flatMap(_.url).headOption.exists(_.toString.startsWith(Resolver.DefaultMavenRepositoryRoot))
-          val isOtherResolver = moduleReport.resolver.contains("inter-project")
-          val purl =
-            // with ivy mode, url is not set so we cannot know if maven was used and we assume it was
-            if (isMaven || (!useCoursier && !isOtherResolver)) {
-              // purl specification: https://github.com/package-url/purl-spec/blob/master/PURL-SPECIFICATION.rst
-              Some(s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging")
-            } else None
+          // purl must be defined otherwise it breaks Github Dependency Graph view
+          val purl = Some(s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging")
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
@@ -200,7 +193,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
       httpResp <- Try(Await.result(http.run(request), Duration.Inf))
       jsonResp <- Parser.parseFromByteBuffer(httpResp.bodyAsByteBuffer)
       response <- Converter.fromJson[SnapshotResponse](jsonResp)
-    } yield new URL(url, response.id)
+    } yield new URL(url, response.id.toString)
 
     result match {
       case scala.util.Success(result) =>

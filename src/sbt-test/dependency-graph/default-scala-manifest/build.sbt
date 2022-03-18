@@ -25,17 +25,13 @@ lazy val p1 = project
       assert(resolved.values.forall(n => n.dependencies.forall(resolved.contains)))
 
       val scalaLibrary = resolved("org.scala-lang:scala-library:2.12.14")
-      // no url when using the default scala version because the scala-library is taken from the sbt classpath
       checkDependencyNode(scalaLibrary)(
-        isUrlDefined = false,
         DependencyRelationship.direct,
         DependencyScope.runtime
       )
 
       val scalaCompiler = resolved("org.scala-lang:scala-compiler:2.12.14")
-      // same for the compiler, it does not have  an url
       checkDependencyNode(scalaCompiler)(
-        isUrlDefined = false,
         DependencyRelationship.direct,
         DependencyScope.development
       )
@@ -43,12 +39,11 @@ lazy val p1 = project
   )
 
 def checkDependencyNode(node: DependencyNode)(
-    isUrlDefined: Boolean,
     relationship: DependencyRelationship,
     scope: DependencyScope,
     deps: Seq[String] = Seq.empty
 ): Unit = {
-  assert(node.purl.isDefined == isUrlDefined)
+  assert(node.purl.isDefined)
   assert(node.relationship.contains(relationship))
   assert(node.scope.contains(scope))
   deps.foreach(d => assert(node.dependencies.contains(d)))

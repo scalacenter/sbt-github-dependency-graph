@@ -29,7 +29,6 @@ lazy val p1 = project
 
       val circe = resolved("io.circe:circe-core_3:0.14.1")
       checkDependencyNode(circe)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.runtime,
         Seq("org.scala-lang:scala3-library_3:3.1.0")
@@ -37,14 +36,12 @@ lazy val p1 = project
 
       val scala3Library = resolved("org.scala-lang:scala3-library_3:3.1.0")
       checkDependencyNode(scala3Library)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.runtime
       )
 
       val scala3Compiler = resolved("org.scala-lang:scala3-compiler_3:3.1.0")
       checkDependencyNode(scala3Compiler)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.development
       )
@@ -52,12 +49,11 @@ lazy val p1 = project
   )
 
 def checkDependencyNode(node: DependencyNode)(
-    isUrlDefined: Boolean,
     relationship: DependencyRelationship,
     scope: DependencyScope,
     deps: Seq[String] = Seq.empty
 ): Unit = {
-  assert(node.purl.isDefined == isUrlDefined)
+  assert(node.purl.isDefined)
   assert(node.relationship.contains(relationship))
   assert(node.scope.contains(scope))
   deps.foreach(d => assert(node.dependencies.contains(d)))

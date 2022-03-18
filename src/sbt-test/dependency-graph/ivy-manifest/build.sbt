@@ -33,7 +33,6 @@ lazy val p1 = project
 
       val circe = resolved("io.circe:circe-generic_2.12:0.14.1")
       checkDependencyNode(circe)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.runtime,
         Seq("com.chuusai:shapeless_2.12:2.3.7")
@@ -41,7 +40,6 @@ lazy val p1 = project
 
       val doobie = resolved("org.tpolecat:doobie-core_2.12:0.13.4")
       checkDependencyNode(doobie)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.runtime,
         Seq("com.chuusai:shapeless_2.12:2.3.7")
@@ -49,14 +47,12 @@ lazy val p1 = project
 
       val shapeless = resolved("com.chuusai:shapeless_2.12:2.3.7")
       checkDependencyNode(shapeless)(
-        isUrlDefined = true,
         DependencyRelationship.indirect,
         DependencyScope.runtime
       )
 
       val scalatest = resolved("org.scalatest:scalatest_2.12:3.2.2")
       checkDependencyNode(scalatest)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.development,
         Seq("org.scalatest:scalatest-core_2.12:3.2.2")
@@ -64,7 +60,6 @@ lazy val p1 = project
 
       val scalatestCore = resolved("org.scalatest:scalatest-core_2.12:3.2.2")
       checkDependencyNode(scalatestCore)(
-        isUrlDefined = true,
         DependencyRelationship.indirect,
         DependencyScope.development
       )
@@ -89,14 +84,12 @@ lazy val p2 = project
 
       val akkaHttp = resolved("com.typesafe.akka:akka-http_2.12:10.2.8")
       checkDependencyNode(akkaHttp)(
-        isUrlDefined = true,
         DependencyRelationship.direct,
         DependencyScope.runtime
       )
 
       val p1Node = resolved("ch.epfl.scala:p1_2.12:1.2.0-SNAPSHOT")
       checkDependencyNode(p1Node)(
-        isUrlDefined = false,
         DependencyRelationship.direct,
         DependencyScope.runtime
       )
@@ -104,7 +97,6 @@ lazy val p2 = project
       // transitively depends on circe through p1
       val circe = resolved("io.circe:circe-generic_2.12:0.14.1")
       checkDependencyNode(circe)(
-        isUrlDefined = true,
         DependencyRelationship.indirect,
         DependencyScope.runtime,
         Seq("com.chuusai:shapeless_2.12:2.3.7")
@@ -117,12 +109,11 @@ lazy val p2 = project
   .dependsOn(p1)
 
 def checkDependencyNode(node: DependencyNode)(
-    isUrlDefined: Boolean,
     relationship: DependencyRelationship,
     scope: DependencyScope,
     deps: Seq[String] = Seq.empty
 ): Unit = {
-  assert(node.purl.isDefined == isUrlDefined)
+  assert(node.purl.isDefined)
   assert(node.relationship.contains(relationship))
   assert(node.scope.contains(scope))
   deps.foreach(d => assert(node.dependencies.contains(d)))
