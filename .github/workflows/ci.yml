@@ -37,9 +37,9 @@ jobs:
     - run: sbtn scripted
       shell: bash
       if: runner.os != 'Windows'
-    - run: sbtn.bat test
+    - run: sbt.bat test
       shell: bash
       if: runner.os == 'Windows'
-    - run: sbtn.bat scripted
+    - run: sbt.bat scripted
       shell: bash
       if: runner.os == 'Windows'
