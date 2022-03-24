@@ -26,7 +26,7 @@ inThisBuild(
 
 val `sbt-github-dependency-graph` = project
   .in(file("."))
-  .enablePlugins(SbtPlugin, ContrabandPlugin, JsonCodecPlugin)
+  .enablePlugins(SbtPlugin, ContrabandPlugin, JsonCodecPlugin, BuildInfoPlugin)
   .settings(
     name := "sbt-github-dependency-graph",
     sbtVersion := "1.5.8",
@@ -44,6 +44,9 @@ val `sbt-github-dependency-graph` = project
       "com.eed3si9n" %% "gigahorse-okhttp" % "0.6.0",
       "org.scalameta" %% "munit" % "0.7.29" % Test
     ),
+    buildInfoKeys := Seq[BuildInfoKey](name, version, homepage),
+    buildInfoPackage := "ch.epfl.scala",
+    buildInfoObject := "SbtGithubDependencyGraph",
     scriptedLaunchOpts += s"-Dplugin.version=${version.value}",
     scriptedBufferLog := false,
     Compile / generateContrabands / contrabandFormatsForType := ContrabandConfig.getFormats,

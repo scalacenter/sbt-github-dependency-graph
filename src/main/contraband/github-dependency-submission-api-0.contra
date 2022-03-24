@@ -37,7 +37,7 @@ type Manifest {
 }
 
 type FileInfo {
-  source_lication: String
+  source_location: String
 }
 
 ## A notation of whether a dependency is requested directly

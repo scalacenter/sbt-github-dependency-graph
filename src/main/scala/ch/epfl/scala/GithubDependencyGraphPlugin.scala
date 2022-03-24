@@ -70,13 +70,13 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
 
   private def manifestTask: Def.Initialize[Task[githubapi.Manifest]] = Def.task {
     // updateFull is needed to have information about callers
+    // and reconstruct dependency tree
     val report = Keys.updateFull.value
-    val projectRef = Keys.thisProjectRef.value
     val logger = Keys.streams.value.log
     val projectID = Keys.projectID.value
     val crossVersion = CrossVersion(Keys.scalaVersion.value, Keys.scalaBinaryVersion.value)
     val allDirectDependencies = Keys.allDependencies.value
-    val useCoursier = Keys.useCoursier.value
+    val baseDirectory = Keys.baseDirectory.value
 
     def getReference(module: ModuleID): String =
       crossVersion(module)
@@ -129,7 +129,10 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
         }
 
     val projectModuleRef = getReference(projectID)
-    githubapi.Manifest(projectModuleRef, None, Map.empty[String, JValue], resolved.toMap)
+    // TODO: find exact build file for this project
+    val file = githubapi.FileInfo("build.sbt")
+    val metadata = Map("baseDirectory" -> JString(baseDirectory.toString))
+    githubapi.Manifest(projectModuleRef, file, metadata, resolved.toMap)
   }
 
   private def isRuntime(config: ConfigRef): Boolean = runtimeConfigs.contains(config)
@@ -151,7 +154,11 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val sha = githubCIEnv("GITHUB_SHA")
     val ref = githubCIEnv("GITHUB_REF")
     val projectRefs = loadedBuild.allProjectRefs.map(_._1)
-    val detector = DetectorMetadata("sbt-github-dependency-graph", "", "")
+    val detector = DetectorMetadata(
+      SbtGithubDependencyGraph.name,
+      SbtGithubDependencyGraph.homepage.map(_.toString).getOrElse(""),
+      SbtGithubDependencyGraph.version
+    )
     val scanned = Instant.now
     Def.task {
       val manifests: Map[String, githubapi.Manifest] = projectRefs
