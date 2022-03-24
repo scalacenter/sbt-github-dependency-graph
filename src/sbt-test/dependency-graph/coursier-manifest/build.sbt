@@ -1,6 +1,7 @@
 import ch.epfl.scala.githubapi.DependencyRelationship
 import ch.epfl.scala.githubapi.DependencyScope
-import ch.epfl.scala.githubapi.DependencyNode
+import ch.epfl.scala.githubapi.Manifest
+import sjsonnew.shaded.scalajson.ast.unsafe.JString
 
 val checkManifest = taskKey[Unit]("Check the Github manifest of a project")
 
@@ -23,44 +24,29 @@ lazy val p1 = project
     ),
     checkManifest := {
       val manifest = githubDependencyManifest.value
-      val resolved = manifest.resolved
-
       assert(manifest.name == "ch.epfl.scala:p1_2.12:1.2.0-SNAPSHOT")
 
       // all dependencies are defined
-      assert(resolved.values.forall(n => n.dependencies.forall(resolved.contains)))
+      assert(manifest.resolved.values.forall(n => n.dependencies.forall(manifest.resolved.contains)))
 
-      val circe = resolved("io.circe:circe-generic_2.12:0.14.1")
-      checkDependencyNode(circe)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime,
-        Seq("com.chuusai:shapeless_2.12:2.3.7")
+      checkDependency(manifest, "io.circe:circe-generic_2.12:0.14.1")(
+        expectedDeps = Seq("com.chuusai:shapeless_2.12:2.3.7")
       )
-
-      val doobie = resolved("org.tpolecat:doobie-core_2.12:0.13.4")
-      checkDependencyNode(doobie)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime,
-        Seq("com.chuusai:shapeless_2.12:2.3.7")
+      checkDependency(manifest, "org.tpolecat:doobie-core_2.12:0.13.4")(
+        expectedDeps = Seq("com.chuusai:shapeless_2.12:2.3.7")
       )
-
-      val shapeless = resolved("com.chuusai:shapeless_2.12:2.3.7")
-      checkDependencyNode(shapeless)(
-        DependencyRelationship.indirect,
-        DependencyScope.runtime
+      checkDependency(manifest, "com.chuusai:shapeless_2.12:2.3.7")(
+        expectedRelationship = DependencyRelationship.indirect
       )
-
-      val scalatest = resolved("org.scalatest:scalatest_2.12:3.2.2")
-      checkDependencyNode(scalatest)(
-        DependencyRelationship.direct,
-        DependencyScope.development,
-        Seq("org.scalatest:scalatest-core_2.12:3.2.2")
+      checkDependency(manifest, "org.scalatest:scalatest_2.12:3.2.2")(
+        expectedScope = DependencyScope.development,
+        expectedConfig = "test",
+        expectedDeps = Seq("org.scalatest:scalatest-core_2.12:3.2.2")
       )
-
-      val scalatestCore = resolved("org.scalatest:scalatest-core_2.12:3.2.2")
-      checkDependencyNode(scalatestCore)(
-        DependencyRelationship.indirect,
-        DependencyScope.development
+      checkDependency(manifest, "org.scalatest:scalatest-core_2.12:3.2.2")(
+        expectedRelationship = DependencyRelationship.indirect,
+        expectedScope = DependencyScope.development,
+        expectedConfig = "test"
       )
     }
   )
@@ -73,46 +59,37 @@ lazy val p2 = project
     ),
     checkManifest := {
       val manifest = githubDependencyManifest.value
-      val resolved = manifest.resolved
-
       assert(manifest.name == "ch.epfl.scala:p2_2.12:1.2.0-SNAPSHOT")
 
       // all dependencies are defined
-      assert(resolved.values.forall(n => n.dependencies.forall(resolved.contains)))
+      assert(manifest.resolved.values.forall(n => n.dependencies.forall(manifest.resolved.contains)))
 
-      val akkaHttp = resolved("com.typesafe.akka:akka-http_2.12:10.2.8")
-      checkDependencyNode(akkaHttp)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime
-      )
-
-      val p1Node = resolved("ch.epfl.scala:p1_2.12:1.2.0-SNAPSHOT")
-      checkDependencyNode(p1Node)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime
-      )
+      checkDependency(manifest, "com.typesafe.akka:akka-http_2.12:10.2.8")()
+      checkDependency(manifest, "ch.epfl.scala:p1_2.12:1.2.0-SNAPSHOT")()
 
       // transitively depends on circe through p1
-      val circe = resolved("io.circe:circe-generic_2.12:0.14.1")
-      checkDependencyNode(circe)(
-        DependencyRelationship.indirect,
-        DependencyScope.runtime,
-        Seq("com.chuusai:shapeless_2.12:2.3.7")
+      checkDependency(manifest, "io.circe:circe-generic_2.12:0.14.1")(
+        expectedRelationship = DependencyRelationship.indirect,
+        expectedDeps = Seq("com.chuusai:shapeless_2.12:2.3.7")
       )
 
       // p2 does not depend on scalatest
-      assert(resolved.get("org.scalatest:scalatest_2.12:3.2.2").isEmpty)
+      assert(manifest.resolved.get("org.scalatest:scalatest_2.12:3.2.2").isEmpty)
     }
   )
   .dependsOn(p1)
 
-def checkDependencyNode(node: DependencyNode)(
-    relationship: DependencyRelationship,
-    scope: DependencyScope,
-    deps: Seq[String] = Seq.empty
+def checkDependency(manifest: Manifest, name: String)(
+    expectedRelationship: DependencyRelationship = DependencyRelationship.direct,
+    expectedScope: DependencyScope = DependencyScope.runtime,
+    expectedConfig: String = "compile",
+    expectedDeps: Seq[String] = Seq.empty
 ): Unit = {
-  assert(node.purl.isDefined)
-  assert(node.relationship.contains(relationship))
-  assert(node.scope.contains(scope))
-  deps.foreach(d => assert(node.dependencies.contains(d)))
+  val node = manifest.resolved(name)
+  assert(node.purl.startsWith("pkg:/maven/"), s"Wrong purl for node $name: ${node.purl}")
+  assert(node.relationship.contains(expectedRelationship), s"Wrong relationship for node $name: ${node.relationship}")
+  assert(node.scope.contains(expectedScope), s"Wrong scope for node $name: ${node.scope}")
+  val configurations = node.metadata.get("config").collect { case JString(c) => c }
+  assert(configurations.contains(expectedConfig), s"Wrong config in metadata for node $name: $configurations")
+  expectedDeps.foreach(d => assert(node.dependencies.contains(d), s"missing dependency $d in node $name"))
 }

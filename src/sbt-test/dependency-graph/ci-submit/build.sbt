@@ -1,9 +1,5 @@
 import scala.util.Properties
 
-import ch.epfl.scala.githubapi.DependencyRelationship
-import ch.epfl.scala.githubapi.DependencyScope
-import ch.epfl.scala.githubapi.DependencyNode
-
 val checkSubmit = taskKey[Unit]("Check the Github manifest of a project")
 
 inThisBuild(

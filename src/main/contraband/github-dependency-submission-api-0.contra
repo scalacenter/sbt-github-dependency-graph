@@ -58,7 +58,7 @@ enum DependencyScope {
 }
 
 type DependencyNode {
-  purl: String
+  purl: String!
   metadata: raw"Map[String, sjsonnew.shaded.scalajson.ast.unsafe.JValue]"!
   relationship: ch.epfl.scala.githubapi.DependencyRelationship
   scope: ch.epfl.scala.githubapi.DependencyScope

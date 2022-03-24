@@ -22,6 +22,7 @@ import gigahorse.support.okhttp.Gigahorse
 import sbt.Scoped.richTaskSeq
 import sbt._
 import sbt.plugins.IvyPlugin
+import sjsonnew.shaded.scalajson.ast.unsafe.JString
 import sjsonnew.shaded.scalajson.ast.unsafe.JValue
 import sjsonnew.support.scalajson.unsafe.CompactPrinter
 import sjsonnew.support.scalajson.unsafe.Converter
@@ -114,8 +115,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
           val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
           val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
-          // purl must be defined otherwise it breaks Github Dependency Graph view
-          val purl = Some(s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging")
+          val purl = s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging"
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
@@ -123,7 +123,8 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val scope =
             if (isRuntime(configRef)) DependencyScope.runtime
             else DependencyScope.development
-          val node = DependencyNode(purl, Map.empty[String, JValue], Some(relationship), Some(scope), dependencies)
+          val metadata = Map("config" -> JString(configRef.name))
+          val node = DependencyNode(purl, metadata, Some(relationship), Some(scope), dependencies)
           (moduleRef -> node)
         }
 

@@ -1,6 +1,7 @@
 import ch.epfl.scala.githubapi.DependencyRelationship
 import ch.epfl.scala.githubapi.DependencyScope
-import ch.epfl.scala.githubapi.DependencyNode
+import ch.epfl.scala.githubapi.Manifest
+import sjsonnew.shaded.scalajson.ast.unsafe.JString
 
 val checkManifest = taskKey[Unit]("Check the Github manifest of a project")
 
@@ -20,41 +21,33 @@ lazy val p1 = project
     ),
     checkManifest := {
       val manifest = githubDependencyManifest.value
-      val resolved = manifest.resolved
-
       assert(manifest.name == "ch.epfl.scala:p1_3:1.2.0-SNAPSHOT")
 
       // all dependencies are defined
-      assert(resolved.values.forall(n => n.dependencies.forall(resolved.contains)))
+      assert(manifest.resolved.values.forall(n => n.dependencies.forall(manifest.resolved.contains)))
 
-      val circe = resolved("io.circe:circe-core_3:0.14.1")
-      checkDependencyNode(circe)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime,
-        Seq("org.scala-lang:scala3-library_3:3.1.0")
+      checkDependency(manifest, "io.circe:circe-core_3:0.14.1")(
+        expectedDeps = Seq("org.scala-lang:scala3-library_3:3.1.0")
       )
-
-      val scala3Library = resolved("org.scala-lang:scala3-library_3:3.1.0")
-      checkDependencyNode(scala3Library)(
-        DependencyRelationship.direct,
-        DependencyScope.runtime
-      )
-
-      val scala3Compiler = resolved("org.scala-lang:scala3-compiler_3:3.1.0")
-      checkDependencyNode(scala3Compiler)(
-        DependencyRelationship.direct,
-        DependencyScope.development
+      checkDependency(manifest, "org.scala-lang:scala3-library_3:3.1.0")()
+      checkDependency(manifest, "org.scala-lang:scala3-compiler_3:3.1.0")(
+        expectedConfig = "scala-doc-tool",
+        expectedScope = DependencyScope.development
       )
     }
   )
 
-def checkDependencyNode(node: DependencyNode)(
-    relationship: DependencyRelationship,
-    scope: DependencyScope,
-    deps: Seq[String] = Seq.empty
+def checkDependency(manifest: Manifest, name: String)(
+    expectedRelationship: DependencyRelationship = DependencyRelationship.direct,
+    expectedScope: DependencyScope = DependencyScope.runtime,
+    expectedConfig: String = "compile",
+    expectedDeps: Seq[String] = Seq.empty
 ): Unit = {
-  assert(node.purl.isDefined)
-  assert(node.relationship.contains(relationship))
-  assert(node.scope.contains(scope))
-  deps.foreach(d => assert(node.dependencies.contains(d)))
+  val node = manifest.resolved(name)
+  assert(node.purl.startsWith("pkg:/maven/"), s"Wrong purl for node $name: ${node.purl}")
+  assert(node.relationship.contains(expectedRelationship), s"Wrong relationship for node $name: ${node.relationship}")
+  assert(node.scope.contains(expectedScope), s"Wrong scope for node $name: ${node.scope}")
+  val configurations = node.metadata.get("config").collect { case JString(c) => c }
+  assert(configurations.contains(expectedConfig), s"Wrong config in metadata for node $name: $configurations")
+  expectedDeps.foreach(d => assert(node.dependencies.contains(d), s"missing dependency $d in node $name"))
 }
