@@ -2,7 +2,6 @@ package ch.epfl.scala
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
-import java.util.Base64
 
 import scala.collection.mutable
 import scala.concurrent.Await
@@ -172,10 +171,8 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
 
     val githubApiUrl = githubCIEnv("GITHUB_API_URL")
     val repository = githubCIEnv("GITHUB_REPOSITORY")
-    val username = secret("GH_USERNAME")
-    val token = secret("GH_TOKEN")
+    val token = githubCIEnv("GITHUB_TOKEN")
     val url = new URL(s"$githubApiUrl/repos/$repository/dependency-graph/snapshots")
-    val authorization = Base64.getEncoder().encodeToString(s"$username:$token".getBytes("UTF-8"))
 
     val snapshotJson = CompactPrinter(Converter.toJsonUnsafe(snapshot))
     val request = Gigahorse
@@ -183,8 +180,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
       .post(snapshotJson, StandardCharsets.UTF_8)
       .addHeaders(
         "Content-Type" -> "application/json",
-        // adding authorization manually because of https://github.com/eed3si9n/gigahorse/issues/77
-        "Authorization" -> s"Basic $authorization"
+        "Authorization" -> s"token $token"
       )
 
     logger.info(s"Submiting dependency snapshot to $url")
@@ -209,10 +205,5 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
   private def githubCIEnv(name: String): String =
     Properties.envOrNone(name).getOrElse {
       throw new MessageOnlyException(s"Missing environment variable $name. This task must run in a Github Action.")
-    }
-
-  private def secret(name: String): String =
-    Properties.envOrNone(name).getOrElse {
-      throw new MessageOnlyException(s"Missing secret variable $name.")
     }
 }
