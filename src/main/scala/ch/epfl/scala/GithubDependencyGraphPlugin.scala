@@ -115,7 +115,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
           val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
           val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
-          val purl = s"pkg:/maven/${module.organization}/${module.name}@${module.revision}$packaging"
+          val purl = s"pkg:maven/${module.organization}/${module.name}@${module.revision}$packaging"
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct

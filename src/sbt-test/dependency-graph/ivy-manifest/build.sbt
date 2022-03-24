@@ -86,7 +86,7 @@ def checkDependency(manifest: Manifest, name: String)(
     expectedDeps: Seq[String] = Seq.empty
 ): Unit = {
   val node = manifest.resolved(name)
-  assert(node.purl.startsWith("pkg:/maven/"), s"Wrong purl for node $name: ${node.purl}")
+  assert(node.purl.startsWith("pkg:maven/"), s"Wrong purl for node $name: ${node.purl}")
   assert(node.relationship.contains(expectedRelationship), s"Wrong relationship for node $name: ${node.relationship}")
   assert(node.scope.contains(expectedScope), s"Wrong scope for node $name: ${node.scope}")
   val configurations = node.metadata.get("config").collect { case JString(c) => c }
