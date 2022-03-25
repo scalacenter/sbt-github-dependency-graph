@@ -14,10 +14,16 @@ inThisBuild(
 Global / checkSubmit := {
   val result = submitGithubDependencyGraph.result.value
   val isCI = Properties.envOrNone("CI").isDefined
+  val isPush = Properties.envOrNone("GITHUB_REF").exists(_.startsWith("refs/heads/"))
+  val logger = streams.value.log
   result match {
     case Value(_) => ()
     case Inc(cause) =>
-      if (isCI) throw cause
+      if (isCI && isPush) throw cause
+      else {
+        val firstMessage = Incomplete.allExceptions(cause).head.getMessage
+        logger.info(s"Cannot check submit because: $firstMessage")
+      }
   }
 }
 
