@@ -69,8 +69,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
   )
 
   private def manifestTask: Def.Initialize[Task[githubapi.Manifest]] = Def.task {
-    // updateFull is needed to have information about callers
-    // and reconstruct dependency tree
+    // updateFull is needed to have information about callers and reconstruct dependency tree
     val report = Keys.updateFull.value
     val logger = Keys.streams.value.log
     val projectID = Keys.projectID.value
@@ -115,7 +114,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
           val artifacts = moduleReport.artifacts.map { case (a, _) => a }
           val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
           val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
-          val purl = s"pkg:maven/${module.organization}/${module.name}@${module.revision}$packaging"
+          val packageUrl = s"pkg:maven/${module.organization}/${module.name}@${module.revision}$packaging"
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
@@ -124,7 +123,7 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
             if (isRuntime(configRef)) DependencyScope.runtime
             else DependencyScope.development
           val metadata = Map("config" -> JString(configRef.name))
-          val node = DependencyNode(purl, metadata, Some(relationship), Some(scope), dependencies)
+          val node = DependencyNode(packageUrl, metadata, Some(relationship), Some(scope), dependencies)
           (moduleRef -> node)
         }
 
@@ -138,14 +137,16 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
   private def isRuntime(config: ConfigRef): Boolean = runtimeConfigs.contains(config)
 
   private def jobTask: Def.Initialize[Task[Job]] = Def.task {
+    val workflow = githubCIEnv("GITHUB_WORKFLOW")
     val name = githubCIEnv("GITHUB_JOB")
     val id = githubCIEnv("GITHUB_RUN_ID")
+    val correlator = s"${name}_$workflow"
     val html_url =
       for {
         serverUrl <- Properties.envOrNone("$GITHUB_SERVER_URL")
         repository <- Properties.envOrNone("GITHUB_REPOSITORY")
       } yield s"$serverUrl/$repository/actions/runs/$id"
-    Job(name, id, html_url)
+    Job(correlator, id, html_url)
   }
 
   private def snapshotTask: Def.Initialize[Task[DependencySnapshot]] = Def.taskDyn {

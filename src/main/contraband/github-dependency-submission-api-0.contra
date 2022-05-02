@@ -11,14 +11,14 @@ type DependencySnapshot {
   job: ch.epfl.scala.githubapi.Job!
   sha: String! ## sha of the Git commit
   ref: String! ## ref of the Git commit; example: "refs/heads/main"
-  detector: ch.epfl.scala.githubapi.DetectorMetadata
+  detector: ch.epfl.scala.githubapi.DetectorMetadata!
   metadata: raw"Map[String, sjsonnew.shaded.scalajson.ast.unsafe.JValue]"!
   manifests: raw"Map[String, ch.epfl.scala.githubapi.Manifest]"!
   scanned: String ## ISO8601Date
 }
 
 type Job {
-  name: String!
+  correlator: String!
   id: String!
   html_url: String
 }
@@ -58,7 +58,7 @@ enum DependencyScope {
 }
 
 type DependencyNode {
-  purl: String!
+  package_url: String!
   metadata: raw"Map[String, sjsonnew.shaded.scalajson.ast.unsafe.JValue]"!
   relationship: ch.epfl.scala.githubapi.DependencyRelationship
   scope: ch.epfl.scala.githubapi.DependencyScope
