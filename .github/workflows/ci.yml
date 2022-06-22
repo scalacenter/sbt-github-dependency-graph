@@ -32,16 +32,6 @@ jobs:
     - uses: coursier/setup-action@v1.2.0-M3
       with:
         jvm: ${{ matrix.jvm }}
-        apps: sbtn
-    - run: sbtn test
-      shell: bash
-      if: runner.os != 'Windows'
-    - run: sbtn scripted
-      shell: bash
-      if: runner.os != 'Windows'
-    - run: sbt.bat test
-      shell: bash
-      if: runner.os == 'Windows'
-    - run: sbt.bat scripted
-      shell: bash
-      if: runner.os == 'Windows'
+        apps: sbt
+    - run: sbt test
+    - run: sbt scripted
