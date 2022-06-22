@@ -73,13 +73,10 @@ object SubmitDependencyGraph {
     val request = Gigahorse
       .url(url.toString)
       .post(snapshotJson, StandardCharsets.UTF_8)
-      .addHeaders(
-        "Content-Type" -> "application/json",
-        "Authorization" -> s"token $githubToken"
-      )
+      .withAuth("token", githubToken())
+      .addHeaders("Content-Type" -> "application/json")
 
     state.log.info(s"Submiting dependency snapshot to $url")
-    val response = Await.result(http.run(request), Duration.Inf)
     val result = for {
       httpResp <- Try(Await.result(http.run(request), Duration.Inf))
       jsonResp <- JsonParser.parseFromByteBuffer(httpResp.bodyAsByteBuffer)
