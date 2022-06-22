@@ -13,7 +13,7 @@ import ch.epfl.scala.JsonProtocol._
 import ch.epfl.scala.githubapi.JsonProtocol._
 import ch.epfl.scala.githubapi._
 import gigahorse.HttpClient
-import gigahorse.support.okhttp.Gigahorse
+import gigahorse.support.apachehttp.Gigahorse
 import sbt.BasicCommandStrings._
 import sbt._
 import sbt.internal.util.complete._
