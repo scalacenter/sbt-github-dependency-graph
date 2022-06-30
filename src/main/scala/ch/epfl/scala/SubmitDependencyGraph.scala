@@ -14,7 +14,6 @@ import ch.epfl.scala.githubapi.JsonProtocol._
 import ch.epfl.scala.githubapi._
 import gigahorse.HttpClient
 import gigahorse.support.apachehttp.Gigahorse
-import sbt.BasicCommandStrings._
 import sbt._
 import sbt.internal.util.complete._
 import sjsonnew.shaded.scalajson.ast.unsafe.JValue
@@ -52,17 +51,11 @@ object SubmitDependencyGraph {
       .put(githubManifestsKey, Map.empty[String, Manifest])
       .put(githubProjectsKey, projectRefs)
 
-    val storeAllManifests = scalaVersions.toList.flatMap { scalaVersion =>
+    val storeAllManifests = scalaVersions.flatMap { scalaVersion =>
       Seq(s"++$scalaVersion", githubStoreDependencyManifests.key.label)
     }
-    val commands =
-      StashOnFailure ::
-        storeAllManifests :::
-        SubmitInternal ::
-        FailureWall ::
-        PopOnFailure ::
-        Nil
-    commands ::: initState
+    val commands = storeAllManifests :+ SubmitInternal
+    commands.toList ::: initState
   }
 
   private def submitInternal(state: State): State = {
