@@ -66,8 +66,10 @@ object SubmitDependencyGraph {
     val request = Gigahorse
       .url(url.toString)
       .post(snapshotJson, StandardCharsets.UTF_8)
-      .withAuth("token", githubToken())
-      .addHeaders("Content-Type" -> "application/json")
+      .addHeaders(
+        "Content-Type" -> "application/json",
+        "Authorization" -> s"token ${githubToken()}"
+      )
 
     state.log.info(s"Submiting dependency snapshot to $url")
     val result = for {
