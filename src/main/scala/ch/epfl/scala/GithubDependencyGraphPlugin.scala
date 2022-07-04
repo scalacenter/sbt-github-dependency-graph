@@ -6,7 +6,9 @@ import scala.util.Properties
 import ch.epfl.scala.githubapi._
 import sbt.Scoped.richTaskSeq
 import sbt._
-import sbt.plugins.IvyPlugin
+import sbt.internal.util.complete.Parser
+import sbt.internal.util.complete.Parsers
+import sbt.plugins.JvmPlugin
 import sjsonnew.shaded.scalajson.ast.unsafe.JString
 
 object GithubDependencyGraphPlugin extends AutoPlugin {
@@ -26,18 +28,18 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val githubManifestsKey: AttributeKey[Map[String, githubapi.Manifest]] = AttributeKey("githubDependencyManifests")
     val githubProjectsKey: AttributeKey[Seq[ProjectRef]] = AttributeKey("githubProjectRefs")
     val githubDependencyManifest: TaskKey[githubapi.Manifest] = taskKey("The dependency manifest of the project")
-    val githubStoreDependencyManifests: TaskKey[StateTransform] =
-      taskKey("Store the dependency manifests of all projects in the attribute map.")
+    val githubStoreDependencyManifests: InputKey[StateTransform] =
+      inputKey("Store the dependency manifests of all projects of a Scala version in the attribute map.")
         .withRank(KeyRanks.DTask)
   }
 
   import autoImport._
 
   override def trigger = allRequirements
-  override def requires: Plugins = IvyPlugin
+  override def requires: Plugins = JvmPlugin
 
   override def globalSettings: Seq[Setting[_]] = Def.settings(
-    githubStoreDependencyManifests := storeManifestsTask.value,
+    githubStoreDependencyManifests := storeManifestsTask.evaluated,
     Keys.commands ++= SubmitDependencyGraph.commands
   )
 
@@ -46,12 +48,27 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     githubDependencyManifest / Keys.aggregate := false
   )
 
-  private def storeManifestsTask: Def.Initialize[Task[StateTransform]] = Def.taskDyn {
-    val projectRefs = Keys.state.value
+  private val scalaVersionParser = {
+    import Parsers._
+    import Parser._
+    val validOpChars = Set('.', '-', '+')
+    identifier(
+      charClass(alphanum, "alphanum"),
+      charClass(c => alphanum(c) || validOpChars.contains(c), "version character")
+    )
+  }
+
+  private def storeManifestsTask: Def.Initialize[InputTask[StateTransform]] = Def.inputTaskDyn {
+    val scalaVersionInput = (Parsers.Space ~> scalaVersionParser).parsed
+    val state = Keys.state.value
+
+    val projectRefs = state
       .get(githubProjectsKey)
       .getOrElse(
         throw new MessageOnlyException(s"The ${githubProjectsKey.label} attribute is not initialized")
       )
+      .filter(ref => state.setting(ref / Keys.scalaVersion) == scalaVersionInput)
+
     Def.task {
       val manifests: Map[String, Manifest] = projectRefs
         .map(ref => (ref / githubDependencyManifest).?)

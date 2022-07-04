@@ -45,14 +45,14 @@ object SubmitDependencyGraph {
 
   private def submit(state: State, input: SubmitInput): State = {
     checkGithubEnv() // fail fast if the Github CI environment is incomplete
-    val projectRefs = getProjectRefs(state, input)
+    val projectRefs = getScalaProjectRefs(state, input)
     val scalaVersions = getScalaVersions(state, input, projectRefs)
     val initState = state
       .put(githubManifestsKey, Map.empty[String, Manifest])
       .put(githubProjectsKey, projectRefs)
 
     val storeAllManifests = scalaVersions.flatMap { scalaVersion =>
-      Seq(s"++$scalaVersion", githubStoreDependencyManifests.key.label)
+      Seq(s"++$scalaVersion", s"${githubStoreDependencyManifests.key} $scalaVersion")
     }
     val commands = storeAllManifests :+ SubmitInternal
     commands.toList ::: initState
@@ -89,12 +89,15 @@ object SubmitDependencyGraph {
     }
   }
 
-  private def getProjectRefs(state: State, input: SubmitInput): Seq[ProjectRef] = {
+  // project refs that have a Scala version, filtered according to input.projects
+  private def getScalaProjectRefs(state: State, input: SubmitInput): Seq[ProjectRef] = {
     val loadedBuild = state.setting(Keys.loadedBuild)
-    val allProjectRefs = loadedBuild.allProjectRefs.map(_._1)
+    val allScalaProjectRefs = loadedBuild.allProjectRefs
+      .map(_._1)
+      .filter(ref => state.getSetting(ref / Keys.scalaVersion).isDefined)
     val projectFilter = input.projects.toSet
-    if (projectFilter.isEmpty) allProjectRefs
-    else allProjectRefs.filter(ref => projectFilter.contains(ref.project))
+    if (projectFilter.isEmpty) allScalaProjectRefs
+    else allScalaProjectRefs.filter(ref => projectFilter.contains(ref.project))
   }
 
   private def getScalaVersions(state: State, input: SubmitInput, projectRefs: Seq[ProjectRef]): Seq[String] = {
