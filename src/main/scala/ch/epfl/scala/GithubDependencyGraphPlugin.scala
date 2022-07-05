@@ -128,12 +128,8 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val resolved =
       for ((moduleReport, configRef) <- moduleReports)
         yield {
-          val module = moduleReport.module
-          val moduleRef = getReference(module)
-          val artifacts = moduleReport.artifacts.map { case (a, _) => a }
-          val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
-          val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c") else ""
-          val packageUrl = s"pkg:maven/${module.organization}/${module.name}@${module.revision}$packaging"
+          val moduleRef = getReference(moduleReport.module)
+          val packageUrl = formatPackageUrl(moduleReport)
           val dependencies = allDependenciesMap.getOrElse(moduleRef, Vector.empty)
           val relationship =
             if (allDirectDependenciesRefs.contains(moduleRef)) DependencyRelationship.direct
@@ -151,6 +147,14 @@ object GithubDependencyGraphPlugin extends AutoPlugin {
     val file = githubapi.FileInfo("build.sbt")
     val metadata = Map("baseDirectory" -> JString(baseDirectory.toString))
     githubapi.Manifest(projectModuleRef, file, metadata, resolved.toMap)
+  }
+
+  private def formatPackageUrl(moduleReport: ModuleReport): String = {
+    val module = moduleReport.module
+    val artifacts = moduleReport.artifacts.map { case (a, _) => a }
+    val classifiers = artifacts.flatMap(_.classifier).filter(_ != "default")
+    val packaging = if (classifiers.nonEmpty) "?" + classifiers.map(c => s"packaging=$c").mkString("&") else ""
+    s"pkg:maven/${module.organization}/${module.name}@${module.revision}$packaging"
   }
 
   private def isRuntime(config: ConfigRef): Boolean = runtimeConfigs.contains(config)

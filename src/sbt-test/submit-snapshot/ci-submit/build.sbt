@@ -7,6 +7,8 @@ inThisBuild(
   Seq(
     organization := "ch.epfl.scala",
     version := "1.2.0-SNAPSHOT",
+    // use Ivy because Coursier does not allow several classifier on the same dep
+    useCoursier := false,
     scalaVersion := "2.13.8"
   )
 )
@@ -19,6 +21,13 @@ val a = project
       "2.12.16",
       "2.13.8",
       "3.1.3"
+    ),
+    libraryDependencies ++= Seq(
+      // a dependency with many classifiers
+      ("org.lwjgl" % "lwjgl" % "3.3.1")
+        .classifier("natives-windows")
+        .classifier("natives-linux")
+        .classifier("natives-macos")
     )
   )
 
